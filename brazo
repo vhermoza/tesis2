@@ -1,0 +1,39 @@
+#include <Servo.h>
+
+Servo pinza;  // Crear objeto para la pinza
+Servo muneca; // Crear objeto para la muñeca
+Servo hombro; // Crear objeto para el hombro
+Servo codo;   // Crear objeto para el codo
+
+void setup() {
+  pinza.attach(9);  // Conectar la pinza al pin 9
+  muneca.attach(10); // Conectar la muñeca al pin 10
+  hombro.attach(11); // Conectar el hombro al pin 11
+  codo.attach(12);   // Conectar el codo al pin 12
+}
+
+void loop() {
+  // Control de la pinza
+  pinza.write(0);   
+  delay(1000);      
+  pinza.write(90);  
+  delay(1000);      
+
+  // Control de la muñeca
+  muneca.write(0);  
+  delay(1000);      
+  muneca.write(180); 
+  delay(1000);      
+
+  // Control del hombro
+  hombro.write(45);  
+  delay(1000);      
+  hombro.write(90);  
+  delay(1000);      
+
+  // Control del codo
+  codo.write(45);   
+  delay(1000);      
+  codo.write(90);   
+  delay(1000);      
+}

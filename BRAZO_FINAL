@@ -1,0 +1,101 @@
+#include <Servo.h>
+
+Servo pinza;  // Crear objeto para la pinza
+Servo muneca; // Crear objeto para la muñeca
+Servo codo;   // Crear objeto para el codo
+Servo hombro; // Crear objeto para el hombro
+
+const int pinzaPin = 9;
+const int munecaPin = 10;
+const int codoPin = 11;
+const int hombroPin = 12;
+
+const int joy1XPin = A0; // Eje X del primer joystick (para la pinza)
+const int joy1YPin = A1; // Eje Y del primer joystick (para la muñeca)
+const int joy1ButtonPin = 2; // Botón del primer joystick
+
+const int joy2XPin = A2; // Eje X del segundo joystick (para el codo)
+const int joy2YPin = A3; // Eje Y del segundo joystick (para el hombro)
+
+int joy1XValue = 0;
+int joy1YValue = 0;
+int joy1ButtonState = 0;
+
+int joy2XValue = 0;
+int joy2YValue = 0;
+
+const int pinzaCerrada = 150; // Define el ángulo para la posición cerrada de la pinza
+
+// Limitar el rango de la muñeca, codo y hombro (puedes ajustarlo según lo desees)
+const int minMunecaAngle = 30;  // Ángulo mínimo para la muñeca
+const int maxMunecaAngle = 90;  // Ángulo máximo para la muñeca
+const int minCodoAngle = 0;     // Ángulo mínimo para el codo
+const int maxCodoAngle = 180;   // Ángulo máximo para el codo
+const int minHombroAngle = 30;  // Ángulo mínimo para el hombro
+const int maxHombroAngle = 90;  // Ángulo máximo para el hombro
+
+// Definir un rango muerto para el joystick (tolerancia en torno al valor 512)
+const int deadZone = 50;  // Ajusta este valor para hacer la zona muerta más o menos grande
+const int joystickCenter = 512;  // Valor central del joystick (para 10 bits, debería ser alrededor de 512)
+
+void setup() {
+  Serial.begin(9600); // Inicializar comunicación serial para depuración
+  pinza.attach(pinzaPin);
+  muneca.attach(munecaPin);
+  codo.attach(codoPin);
+  hombro.attach(hombroPin);
+
+  pinza.write(0);   // Inicializar la pinza en 0 grados (abierta)
+  muneca.write(0);  // Inicializar la muñeca en 0 grados
+  codo.write(90);   // Inicializar el codo en 90 grados (posición media)
+  hombro.write(60); // Inicializar el hombro en 60 grados (posición media)
+
+  pinMode(joy1ButtonPin, INPUT_PULLUP); // Configurar el botón del primer joystick como entrada con resistencia pull-up
+}
+
+void loop() {
+  joy1XValue = analogRead(joy1XPin); // Leer el valor del eje X del primer joystick
+  joy1YValue = analogRead(joy1YPin); // Leer el valor del eje Y del primer joystick
+  joy1ButtonState = digitalRead(joy1ButtonPin); // Leer el estado del botón del primer joystick
+
+  joy2XValue = analogRead(joy2XPin); // Leer el valor del eje X del segundo joystick (para el codo)
+  joy2YValue = analogRead(joy2YPin); // Leer el valor del eje Y del segundo joystick (para el hombro)
+
+  // Aplicar zona muerta al eje Y del primer joystick (para la muñeca)
+  if (abs(joy1YValue - joystickCenter) < deadZone) {
+    joy1YValue = joystickCenter;  // Mantener el valor en el centro si está dentro del rango muerto
+  }
+
+  // Aplicar zona muerta al eje Y del segundo joystick (para el hombro)
+  if (abs(joy2YValue - joystickCenter) < deadZone) {
+    joy2YValue = joystickCenter;  // Mantener el valor en el centro si está dentro del rango muerto
+  }
+
+  // Mapear los valores del joystick a los ángulos de los servos
+  int pinzaAngle = map(joy1XValue, 0, 1023, 0, 180); // Controlar la pinza con el eje X del joystick
+  
+  // Limitar el rango de movimiento de la muñeca
+  int munecaAngle = map(joy1YValue, 0, 1023, minMunecaAngle, maxMunecaAngle); // Controlar la muñeca con el eje Y del joystick
+
+  // Limitar el rango de movimiento del codo
+  int codoAngle = map(joy2YValue, 0, 1023, minCodoAngle, maxCodoAngle); // Controlar el codo con el eje Y del segundo joystick
+  
+  // Limitar el rango de movimiento del hombro
+  int hombroAngle = map(joy2XValue, 0, 1023, minHombroAngle, maxHombroAngle); // Controlar el hombro con el eje X del segundo joystick
+
+  // Controlar la pinza con el botón del joystick
+  if (joy1ButtonState == LOW) {
+    pinza.write(pinzaCerrada); // Mover la pinza a cerrada (150 grados) si el botón está presionado
+  } else {
+    pinza.write(pinzaAngle);   // Controlar la pinza con el joystick si el botón no está presionado
+  }
+
+  // Controlar la muñeca
+  muneca.write(munecaAngle);
+
+  // Controlar el codo y el hombro con el segundo joystick
+  codo.write(codoAngle);
+  hombro.write(hombroAngle);
+
+  delay(15); // Pausa pequeña para estabilidad
+}

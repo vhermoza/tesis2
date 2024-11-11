@@ -1,0 +1,42 @@
+import sqlite3
+
+# Conectar a la base de datos SQLite
+conn = sqlite3.connect('C:\\Users\\valeh\\Documents\\New folder\\.venv\\Scripts\\plastico2.db')
+cursor = conn.cursor()
+# Eliminar la tabla si existe 
+cursor.execute('DROP TABLE IF EXISTS usuarios')
+# Crear una tabla con un campo adicional para la ruta de la foto
+cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+                      id INTEGER PRIMARY KEY,
+                      nombre TEXT NOT NULL,
+                      edad INTEGER NOT NULL,
+                      ruta_foto TEXT NOT NULL)''')
+
+# Lista de nombres y edades de ejemplo (sólo como placeholder, puedes reemplazarlos con tus datos reales)
+nombres = [f'Usuario{i}' for i in range(1, 201)]
+edades = [i % 100 for i in range(1, 201)]  # Para tener edades variadas entre 0 y 99
+
+# Inserción de datos con rutas de fotos
+for i in range(1, 201):
+    
+    ruta_foto = f'C:\\Users\\valeh\\Documents\\New folder\\.venv\\data\\imagen({i}).jpg'
+    nombre = nombres[i-1]
+    edad = edades[i-1]
+    cursor.execute('''INSERT INTO usuarios (id, nombre, edad, ruta_foto)
+                      VALUES (?, ?, ?, ?)''', (i, nombre, edad, ruta_foto))
+
+# Consulta de datos para verificar
+cursor.execute('SELECT * FROM usuarios')
+for row in cursor.fetchall():
+    print(row)
+
+# Guardar los cambios
+conn.commit()
+
+# Cerrar la conexión
+conn.close()
+
+# Ejemplo de manejo de imágenes con rutas relativas
+for i in range(1, 201):
+    ruta_imagen = f'C:\\Users\\valeh\\Documents\\New folder\\.venv\\data\\imagen{i}.jpg'
+    print(f'Procesando la imagen en {ruta_imagen}')

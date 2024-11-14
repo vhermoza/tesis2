@@ -1,101 +1,161 @@
 #include <Servo.h>
 
-Servo pinza;  // Crear objeto para la pinza
-Servo muneca; // Crear objeto para la muñeca
-Servo codo;   // Crear objeto para el codo
-Servo hombro; // Crear objeto para el hombro
+Servo pinza;   // Crear objeto para la pinza
+Servo muneca;  // Crear objeto para la muñeca
+Servo codo;    // Crear objeto para el codo
+Servo hombro;  // Crear objeto para el hombro
+Servo extraServo; // Crear objeto para el nuevo servo en el pin 8
 
-const int pinzaPin = 9;
-const int munecaPin = 10;
-const int codoPin = 11;
-const int hombroPin = 12;
+const int pinzaPin = 12;
+const int munecaPin = 11;
+const int codoPin = 10;
+const int extraServoPin = 9; // Pin del nuevo servo
+const int hombroPin = 8;
 
-const int joy1XPin = A0; // Eje X del primer joystick (para la pinza)
-const int joy1YPin = A1; // Eje Y del primer joystick (para la muñeca)
-const int joy1ButtonPin = 2; // Botón del primer joystick
+const int joy1XPin = A0;    // Eje X del primer joystick (para la pinza)
+const int joy1YPin = A1;    // Eje Y del primer joystick (para la muñeca)
 
-const int joy2XPin = A2; // Eje X del segundo joystick (para el codo)
-const int joy2YPin = A3; // Eje Y del segundo joystick (para el hombro)
+const int joy2XPin = A2;    // Eje X del segundo joystick (para el codo)
+const int joy2YPin = A3;    // Eje Y del segundo joystick (para el hombro)
+
+const int joy1ButtonPin = 4;  // Pin del botón del primer joystick
+const int joy2ButtonPin = 5;  // Pin del botón del segundo joystick
 
 int joy1XValue = 0;
 int joy1YValue = 0;
-int joy1ButtonState = 0;
-
 int joy2XValue = 0;
 int joy2YValue = 0;
 
-const int pinzaCerrada = 150; // Define el ángulo para la posición cerrada de la pinza
+bool grabando = false; // Variable para controlar el estado de grabación
+bool reproduciendo = false; // Variable para controlar el estado de reproducción
 
-// Limitar el rango de la muñeca, codo y hombro (puedes ajustarlo según lo desees)
-const int minMunecaAngle = 30;  // Ángulo mínimo para la muñeca
-const int maxMunecaAngle = 90;  // Ángulo máximo para la muñeca
-const int minCodoAngle = 0;     // Ángulo mínimo para el codo
-const int maxCodoAngle = 180;   // Ángulo máximo para el codo
-const int minHombroAngle = 30;  // Ángulo mínimo para el hombro
-const int maxHombroAngle = 90;  // Ángulo máximo para el hombro
+// Estructura para almacenar los ángulos de los servos grabados
+struct ServoAngles {
+  int pinza;
+  int muneca;
+  int codo;
+  int extraServo;
+};
 
-// Definir un rango muerto para el joystick (tolerancia en torno al valor 512)
-const int deadZone = 50;  // Ajusta este valor para hacer la zona muerta más o menos grande
-const int joystickCenter = 512;  // Valor central del joystick (para 10 bits, debería ser alrededor de 512)
+// Arreglo para almacenar los datos grabados
+ServoAngles grabacion[100];  // Máximo 100 puntos de grabación
+int grabacionIndex = 0;      // Índice para almacenar datos
 
 void setup() {
-  Serial.begin(9600); // Inicializar comunicación serial para depuración
+  Serial.begin(9600);
   pinza.attach(pinzaPin);
   muneca.attach(munecaPin);
   codo.attach(codoPin);
   hombro.attach(hombroPin);
+  extraServo.attach(extraServoPin); // Inicializar el nuevo servo
 
-  pinza.write(0);   // Inicializar la pinza en 0 grados (abierta)
-  muneca.write(0);  // Inicializar la muñeca en 0 grados
-  codo.write(90);   // Inicializar el codo en 90 grados (posición media)
-  hombro.write(60); // Inicializar el hombro en 60 grados (posición media)
+  // Configuración de los pines de los botones como entrada con pull-up interno
+  pinMode(joy1ButtonPin, INPUT_PULLUP);  
+  pinMode(joy2ButtonPin, INPUT_PULLUP);
 
-  pinMode(joy1ButtonPin, INPUT_PULLUP); // Configurar el botón del primer joystick como entrada con resistencia pull-up
+  hombro.write(150);  // Posición inicial del hombro
+  Serial.println("Esperando comandos...");
 }
 
 void loop() {
+  // Comprobar si hay datos disponibles en el monitor serie
+  if (Serial.available() > 0) {
+    char command = Serial.read();  // Leer el carácter enviado
+
+    // Comenzar a grabar si se recibe la letra 'g'
+    if (command == 'g' && !reproduciendo) {
+      grabando = true;
+      grabacionIndex = 0;  // Reiniciar el índice de grabación
+      Serial.println("Grabación iniciada.");
+    }
+
+    // Detener la grabación si se recibe la letra 'd'
+    if (command == 'd' && !reproduciendo) {
+      grabando = false;
+      Serial.println("Grabación detenida.");
+    }
+
+    // Reproducir la grabación si se recibe la letra 'r'
+    if (command == 'r' && !grabando) {
+      if (grabacionIndex > 0) { // Verificar si hay datos grabados
+        reproduciendo = true;
+        Serial.println("Reproducción iniciada.");
+      } else {
+        Serial.println("No hay datos para reproducir.");
+      }
+    }
+  }
+
+  // Leer los valores de los joysticks
   joy1XValue = analogRead(joy1XPin); // Leer el valor del eje X del primer joystick
   joy1YValue = analogRead(joy1YPin); // Leer el valor del eje Y del primer joystick
-  joy1ButtonState = digitalRead(joy1ButtonPin); // Leer el estado del botón del primer joystick
+  joy2XValue = analogRead(joy2XPin); // Leer el valor del eje X del segundo joystick
+  joy2YValue = analogRead(joy2YPin); // Leer el valor del eje Y del segundo joystick
 
-  joy2XValue = analogRead(joy2XPin); // Leer el valor del eje X del segundo joystick (para el codo)
-  joy2YValue = analogRead(joy2YPin); // Leer el valor del eje Y del segundo joystick (para el hombro)
+  // Mapeo de los valores del joystick a ángulos de servos
+  int pinzaAngle = map(joy1XValue, 0, 1023, 180, 0);
+  int munecaAngle = map(joy1YValue, 0, 1023, 0, 180);
+  int codoAngle = map(joy2XValue, 0, 1023, 0, 180);  // Mover de 180 a 0 grados
+  int extraServoAngle = map(joy2YValue, 0, 1023, 180, 0);  // Invertir para dirección adecuada
 
-  // Aplicar zona muerta al eje Y del primer joystick (para la muñeca)
-  if (abs(joy1YValue - joystickCenter) < deadZone) {
-    joy1YValue = joystickCenter;  // Mantener el valor en el centro si está dentro del rango muerto
-  }
-
-  // Aplicar zona muerta al eje Y del segundo joystick (para el hombro)
-  if (abs(joy2YValue - joystickCenter) < deadZone) {
-    joy2YValue = joystickCenter;  // Mantener el valor en el centro si está dentro del rango muerto
-  }
-
-  // Mapear los valores del joystick a los ángulos de los servos
-  int pinzaAngle = map(joy1XValue, 0, 1023, 0, 180); // Controlar la pinza con el eje X del joystick
-  
-  // Limitar el rango de movimiento de la muñeca
-  int munecaAngle = map(joy1YValue, 0, 1023, minMunecaAngle, maxMunecaAngle); // Controlar la muñeca con el eje Y del joystick
-
-  // Limitar el rango de movimiento del codo
-  int codoAngle = map(joy2YValue, 0, 1023, minCodoAngle, maxCodoAngle); // Controlar el codo con el eje Y del segundo joystick
-  
-  // Limitar el rango de movimiento del hombro
-  int hombroAngle = map(joy2XValue, 0, 1023, minHombroAngle, maxHombroAngle); // Controlar el hombro con el eje X del segundo joystick
-
-  // Controlar la pinza con el botón del joystick
-  if (joy1ButtonState == LOW) {
-    pinza.write(pinzaCerrada); // Mover la pinza a cerrada (150 grados) si el botón está presionado
-  } else {
-    pinza.write(pinzaAngle);   // Controlar la pinza con el joystick si el botón no está presionado
-  }
-
-  // Controlar la muñeca
+  // Control manual de los servos
+  pinza.write(pinzaAngle);
   muneca.write(munecaAngle);
-
-  // Controlar el codo y el hombro con el segundo joystick
   codo.write(codoAngle);
-  hombro.write(hombroAngle);
+  extraServo.write(extraServoAngle); // Control manual del nuevo servo
 
-  delay(15); // Pausa pequeña para estabilidad
+  // Si el botón del primer joystick se presiona, mover el hombro a 30 grados
+  if (digitalRead(joy1ButtonPin) == LOW) {  // Button pressed (LOW due to INPUT_PULLUP)
+    hombro.write(30);
+    Serial.println("Hombro movido a 30 grados por el primer botón.");
+  }
+
+  // Si el botón del segundo joystick se presiona, mover el hombro a 150 grados
+  if (digitalRead(joy2ButtonPin) == LOW) {  // Button pressed (LOW due to INPUT_PULLUP)
+    hombro.write(150);
+    Serial.println("Hombro movido a 150 grados por el segundo botón.");
+  }
+
+  // Si estamos grabando, almacenar los valores
+  if (grabando && grabacionIndex < 100) {
+    // Guardamos los ángulos actuales en el arreglo de grabación
+    grabacion[grabacionIndex].pinza = pinzaAngle;
+    grabacion[grabacionIndex].muneca = munecaAngle;
+    grabacion[grabacionIndex].codo = codoAngle;
+    grabacion[grabacionIndex].extraServo = extraServoAngle;
+
+    grabacionIndex++; // Avanzamos al siguiente índice
+
+    // Mostrar los valores de grabación en el monitor serie
+    Serial.print("Grabando... ");
+    Serial.print("Pinza: "); Serial.print(pinzaAngle);
+    Serial.print(" Muñeca: "); Serial.print(munecaAngle);
+    Serial.print(" Codo: "); Serial.print(codoAngle);
+    Serial.print(" Extra Servo: "); Serial.println(extraServoAngle);
+  }
+
+  // Si se está reproduciendo, mover los servos a los ángulos grabados
+  if (reproduciendo && grabacionIndex > 0) {
+    for (int i = 0; i < grabacionIndex; i++) {
+      pinza.write(grabacion[i].pinza);
+      muneca.write(grabacion[i].muneca);
+      codo.write(grabacion[i].codo);
+      extraServo.write(grabacion[i].extraServo);
+
+      // Mostrar en el monitor serie los valores de reproducción
+      Serial.print("Reproduciendo... ");
+      Serial.print("Pinza: "); Serial.print(grabacion[i].pinza);
+      Serial.print(" Muñeca: "); Serial.print(grabacion[i].muneca);
+      Serial.print(" Codo: "); Serial.print(grabacion[i].codo);
+      Serial.print(" Extra Servo: "); Serial.println(grabacion[i].extraServo);
+
+      delay(500);  // Retardo para hacer la reproducción más legible (ajustable)
+    }
+
+    // Al finalizar la reproducción, detenerla
+    reproduciendo = false;
+    Serial.println("Reproducción terminada.");
+  }
+
+  delay(15);  // Pausa pequeña para estabilidad
 }
